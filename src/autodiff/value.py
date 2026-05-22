@@ -134,3 +134,23 @@ class Value:
 
     def __repr__(self):
         return f"Value(data={self.data})"
+
+    def backward(self):
+        topo = []
+        visited = set()
+
+        def build_topo(node):
+            if node not in visited:
+                visited.add(node)
+
+                for parent in node._parents:
+                    build_topo(parent)
+
+                topo.append(node)
+
+        build_topo(self)
+
+        self.grad = 1.0
+
+        for node in reversed(topo):
+            node._backward()

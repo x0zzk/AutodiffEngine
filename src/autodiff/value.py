@@ -150,6 +150,9 @@ class Value:
 
         build_topo(self)
 
+        for node in topo:
+            node.grad = 0.0
+
         self.grad = 1.0
 
         for node in reversed(topo):

@@ -408,6 +408,47 @@ Commit 4 is complete when:
 - the implementation still only supports scalar computation graphs
 - shared-subgraph and repeated-variable edge cases are left for Commit 5 unless they arise naturally
 
+## Commit 5: Gradient accumulation tests and edge-case handling
+
+### Summary
+
+Commit 5 verifies that gradients accumulate correctly when the same `Value` object contributes to an output through
+multiple paths.
+
+The backward pass now resets the gradients of every reachable node before seeding the output gradient. This gives each
+call to `backward()` a clean gradient state while preserving the graph structure used for propagation.
+
+### Important behavior
+
+The topological traversal visits each distinct node once, but a node may still receive multiple gradient contributions.
+
+For example:
+
+```python
+x = Value(3)
+z = x + x
+z.backward()
+```
+
+The node `x` appears once in the topological ordering, but the addition node contributes to `x.grad` twice. Therefore:
+
+```python
+assert x.grad == 2.0
+```
+
+### Acceptance criteria
+
+Commit 5 is complete when:
+
+- all forward operation tests still pass
+- all graph provenance tests still pass
+- all backward traversal tests still pass
+- repeated variable usage is tested
+- shared intermediate usage is tested
+- multiple-path gradient accumulation is tested
+- repeated calls to `backward()` recompute gradients from a clean state
+- floating-point gradient assertions use `pytest.approx` where appropriate
+
 ## Testing checklist
 
 Validation will focus first on the forward semantics of the `Value` abstraction. In particular, tests will verify that

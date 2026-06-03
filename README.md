@@ -2,54 +2,102 @@
 
 ## Overview
 
-This project builds toward a small reverse-mode autodiff engine for scalar computation graphs.
+This project implements a small scalar reverse-mode automatic differentiation engine in Python. It builds dynamic
+computation graphs during ordinary arithmetic execution and applies reverse-mode differentiation to compute gradients
+with respect to scalar inputs.
+
+The engine is intentionally scalar-first: each `Value` object represents a single numeric quantity, stores references to
+its predecessors, records the operation that produced it, and accumulates gradients during backpropagation. This
+constrained design makes the mechanics of automatic differentiation inspectable without introducing additional
+complexity.
 
 ## Motivation
 
-Autodiff provides an algorithmic approach to differentiation, turning a central mathematical operation into a practical
-computational tool. It is one of the core mechanisms in many modern machine learning libraries, where gradients are
-needed for optimization, parameter updates, and model training.
+Automatic differentiation converts symbolic derivative rules into an executable computational procedure. Rather than
+manually deriving gradients for every composed expression, the engine records how a value was computed and then applies
+the chain rule backward through the resulting computation graph.
 
-I chose this project because a small scalar autodiff engine is compact enough to inspect directly while still exposing
-ideas behind larger systems: primitive operations, computation graphs, local derivative rules, and gradient
-accumulation. The goal of this project is to understand the mechanism by which derivatives are computed through program
-execution.
+I built this project to understand the mechanism underlying gradient-based optimization systems. Although modern machine
+learning libraries operate over tensors and highly optimized kernels, their conceptual foundation still relies on local
+derivative rules, graph structure, and systematic gradient propagation.
 
-This project therefore prioritizes conceptual transparency over feature breadth. By the end of the project, I wanted to
-become more comfortable building a mathematically motivated Python project with deliberate scope and appropriate unit
-tests.
+The goal of this project is therefore not to reproduce a full machine learning framework, but to implement the essential
+reverse-mode autodiff mechanism from first principles.
 
-## Mathematical Concepts
+## Core Ideas
 
-This section will describe the mathematical ideas used by the engine, including computation graphs, local derivatives,
-and reverse-mode application of the chain rule.
+The engine is based on four central ideas:
+
+1. **Scalar value objects** Each scalar is represented by a `Value` object containing its numeric data, gradient,
+   predecessor nodes, and backward function.
+
+2. **Operator overloading** Python arithmetic operators are overloaded so expressions such as `a * b + c` construct
+   computation graph nodes automatically.
+
+3. **Local derivative rules** Each primitive operation defines how gradients flow to its immediate inputs.
+
+4. **Reverse topological traversal** Backpropagation visits nodes in reverse dependency order so that each node receives
+   gradient contributions from all downstream computations.
 
 ## Implementation
 
-The implementation is being developed toward a directed acyclic graph representation of scalar expressions. Each
-primitive operation constructs a new `Value` object, allowing later stages of the engine to recover dependency structure
-during reverse-mode differentiation.
+The implementation centers on a `Value` abstraction. Primitive operations such as addition, multiplication,
+exponentiation, negation, subtraction, and division construct new `Value` objects while preserving dependency
+information.
 
-### Operator overloading
+Each operation attaches a local `_backward` function to the output node. During backpropagation, the engine first
+constructs a topological ordering of the computation graph, then traverses that ordering in reverse to accumulate
+gradients.
 
-Operator overloading allows ordinary Python arithmetic syntax to construct new `Value` objects.
+For example, an expression such as:
 
-## Experiments and validation
+```python
+z = (x * y) + (x ** 2)
+z.backward()
+```
 
-Validation will focus first on the forward semantics of the `Value` abstraction. In particular, tests will verify that
-the basic arithmetic operations produce scalar results under both direct and mixed operand usage, including cases where
-`Value` appears on either the left-hand or right-hand side of an expression.
+constructs a computation graph during the forward pass and computes the partial derivatives of `z` with respect to `x`
+and `y` during the backward pass.
 
-Additional tests will examine error handling for unsupported inputs and edge cases, such as invalid exponent types and
-division by zero. Later validation stages will focus on graph structure, reverse traversal, and gradient accumulation in
-composed expressions.
+## Validation
 
-## Trade-offs
+The project includes tests for both forward computation and gradient behavior.
 
-Scalar-first design simplifies the engine. Each node only represents a single numeric value, which makes the computation
-graph easier to inspect, but does not support tensor semantics.
+The test suite validates:
+
+- scalar arithmetic operations
+- mixed operations between `Value` objects and Python numeric types
+- right-hand operator overloads such as `2 + value` and `2 * value`
+- invalid operation handling
+- division and exponentiation behavior
+- gradient accumulation through composed expressions
+- reverse-mode traversal over computation graphs
+
+These tests are intended to verify both the numerical semantics of the `Value` abstraction and the correctness of
+gradient propagation.
+
+## Design Trade-offs
+
+This project deliberately uses scalar values rather than tensors. That decision reduces implementation complexity and
+makes the computation graph easier to inspect. The trade-off is that the engine does not support vectorized operations,
+broadcasting, matrix multiplication, or tensor-valued gradients.
+
+The implementation also prioritizes conceptual clarity over performance. It is designed as a learning and demonstration
+project rather than a production numerical computing library.
 
 ## Future Work
 
-Future work may include tensor-valued operations, broadcasting, additional primitive functions, graph visualization, and
-finite-difference gradient checks.
+Possible extensions include:
+
+- finite-difference gradient checking
+- graph visualization
+- additional nonlinear primitives such as `sin`, `cos`, `tanh`, `exp`, and `log`
+- tensor-valued operations
+- broadcasting semantics
+- simple neural-network components built on top of the scalar engine
+
+## Purpose
+
+This project demonstrates how reverse-mode automatic differentiation can be implemented from first principles using a
+small, inspectable scalar computation graph. It serves as a bridge between mathematical differentiation, graph-based
+computation, and the mechanisms used by larger machine learning systems.
